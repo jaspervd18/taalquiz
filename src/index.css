@@ -1,0 +1,113 @@
+@import "tailwindcss";
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+/**
+ * Speels en tastbaar: ronde letters, volvlakke kleur en knoppen met een
+ * dikke onderrand die indeukt als je drukt. Alle kleuren staan als token
+ * in :root, zodat de donkere modus enkel de waarden omzet en geen enkel
+ * component een dark:-variant nodig heeft.
+ */
+@theme {
+  --font-sans: "Nunito", ui-rounded, "Segoe UI", system-ui, sans-serif;
+  --font-display: "Fredoka", "Nunito", ui-rounded, system-ui, sans-serif;
+
+  --color-paper: #faf8f2;
+  --color-surface: #ffffff;
+  --color-raised: #f1eee4;
+  --color-ink: #2b2a33;
+  --color-muted: #7a7783;
+  --color-line: #e6e1d5;
+  --color-edge: #d9d3c4;
+
+  --color-cobalt: #3b5bf5;
+  --color-cobalt-deep: #2440c4;
+  --color-cobalt-soft: #e5e9ff;
+
+  --color-pino: #22a45d;
+  --color-pino-deep: #17804a;
+  --color-pino-soft: #ddf5e7;
+
+  --color-vermilion: #f2542d;
+  --color-vermilion-deep: #c93b1d;
+  --color-vermilion-soft: #ffe6df;
+
+  --color-citrus: #ffb020;
+  --color-citrus-deep: #d98c0c;
+  --color-citrus-soft: #fff0d4;
+
+  --color-lilac: #8b5cf6;
+  --color-lilac-deep: #6d3fd4;
+  --color-lilac-soft: #efe7ff;
+
+  --color-on-accent: #ffffff;
+}
+
+.dark {
+  --color-paper: #15161b;
+  --color-surface: #1f2128;
+  --color-raised: #2a2d36;
+  --color-ink: #f4f2ec;
+  --color-muted: #9b9aa6;
+  --color-line: #333742;
+  --color-edge: #14161b;
+
+  --color-cobalt: #7d94ff;
+  --color-cobalt-deep: #4a63d8;
+  --color-cobalt-soft: #242a45;
+
+  --color-pino: #46cf8c;
+  --color-pino-deep: #2a9463;
+  --color-pino-soft: #17312a;
+
+  --color-vermilion: #ff8264;
+  --color-vermilion-deep: #cf5236;
+  --color-vermilion-soft: #3a221d;
+
+  --color-citrus: #ffc95c;
+  --color-citrus-deep: #d19a2e;
+  --color-citrus-soft: #362b13;
+
+  --color-lilac: #b294ff;
+  --color-lilac-deep: #7d5ad0;
+  --color-lilac-soft: #2b2242;
+
+  --color-on-accent: #16171d;
+}
+
+:root { color-scheme: light; }
+.dark { color-scheme: dark; }
+
+html, body, #root { height: 100%; }
+
+body {
+  margin: 0;
+  background-color: var(--color-paper);
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+  font-weight: 600;
+  -webkit-font-smoothing: antialiased;
+  overscroll-behavior-y: none;
+}
+
+button, input { -webkit-tap-highlight-color: transparent; font-family: inherit; }
+
+:focus-visible {
+  outline: 3px solid var(--color-cobalt);
+  outline-offset: 3px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+.scrollbar-thin::-webkit-scrollbar { width: 8px; height: 8px; }
+.scrollbar-thin::-webkit-scrollbar-track { background: transparent; }
+.scrollbar-thin::-webkit-scrollbar-thumb {
+  background: var(--color-line);
+  border-radius: 99px;
+}
