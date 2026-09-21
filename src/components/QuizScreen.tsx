@@ -163,7 +163,7 @@ export function QuizScreen({ questions, options, audio, onFinish, onQuit }: Prop
       if (judgement.verdict === "correct") {
         advanceTimer.current = window.setTimeout(
           () => (isLast ? finishNow(allAttempts) : goNext()),
-          760,
+          950,
         );
       }
       // Bij 'bijna' of fout laten we de gebruiker zelf doorklikken, zodat er
@@ -214,7 +214,7 @@ export function QuizScreen({ questions, options, audio, onFinish, onQuit }: Prop
       initial={{ opacity: 0, y: 16 }}
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: -12 }}
-      className="mx-auto flex min-h-[calc(100dvh-7rem)] w-full max-w-2xl flex-col px-4 pb-10 sm:px-6"
+      className="mx-auto w-full max-w-2xl px-4 pb-44 sm:px-6"
     >
       <div className="sticky top-0 z-10 -mx-4 bg-paper px-4 pt-4 pb-3 sm:-mx-6 sm:px-6">
         <div className="mb-2 flex items-center gap-3 text-sm font-bold">
@@ -230,15 +230,16 @@ export function QuizScreen({ questions, options, audio, onFinish, onQuit }: Prop
             {Math.min(answeredCount + 1, total)} / {total}
           </span>
 
-          <div className="ml-auto flex items-center gap-2">
+          {/* Vaste breedte, anders schuiven de badges bij elk goed antwoord. */}
+          <div className="ml-auto flex min-w-[8.5rem] items-center justify-end gap-2">
             <AnimatePresence>
               {streak >= 3 && (
                 <motion.span
-                  initial={{ scale: 0, opacity: 0 }}
+                  initial={{ scale: 0.4, opacity: 0 }}
                   animate={{ scale: 1, opacity: 1 }}
-                  exit={{ scale: 0, opacity: 0 }}
+                  exit={{ scale: 0.4, opacity: 0 }}
                   transition={spring}
-                  className="flex items-center gap-1 rounded-full bg-citrus-soft px-2.5 py-1 text-citrus-deep"
+                  className="flex items-center gap-1 rounded-full bg-citrus-soft px-2.5 py-1 text-citrus-deep tabular-nums"
                 >
                   🔥 {streak}
                 </motion.span>
@@ -262,100 +263,107 @@ export function QuizScreen({ questions, options, audio, onFinish, onQuit }: Prop
         </div>
       </div>
 
-      <div className="flex flex-1 flex-col justify-center">
-      <AnimatePresence mode="wait">
-        <motion.div
-          key={question.id}
-          initial={{ opacity: 0, x: 40, rotate: 1.5 }}
-          animate={{ opacity: 1, x: 0, rotate: 0 }}
-          exit={{ opacity: 0, x: -40, rotate: -1.5 }}
-          transition={{ type: "spring", stiffness: 300, damping: 30 }}
-        >
-          <Card className="mt-4 overflow-hidden">
-            <div className="flex items-center justify-between gap-2 border-b-2 border-line px-5 py-2.5 text-xs font-extrabold tracking-wide text-muted uppercase">
-              <span>
-                {question.direction === "it2nl" ? "Italiaans naar Nederlands" : "Nederlands naar Italiaans"}
-              </span>
-              <span className="truncate pl-2 text-right normal-case">
-                {lessonSubtitle(question.word.l)}
-              </span>
-            </div>
-
-            <div className="flex min-h-40 flex-col items-center justify-center gap-3 px-5 py-9 text-center">
-              <div className="flex items-center gap-3">
-                <motion.h2
-                  key={`${question.id}-prompt`}
-                  initial={{ scale: 0.92, opacity: 0 }}
-                  animate={{ scale: 1, opacity: 1 }}
-                  transition={spring}
-                  className="font-display text-3xl leading-tight font-semibold text-balance text-ink sm:text-4xl"
-                >
-                  {question.prompt}
-                </motion.h2>
-                <SpeakerButton
-                  onClick={() => speak(question.prompt, promptLang)}
-                  label="Lees de vraag voor"
-                />
-              </div>
-              <span className="rounded-full bg-raised px-3 py-1 text-xs font-extrabold text-muted">
-                {{ noun: "zelfstandig naamwoord", verb: "werkwoord", adjective: "bijvoeglijk naamwoord", other: "overig" }[question.word.t]}
-              </span>
-            </div>
-          </Card>
-        </motion.div>
-      </AnimatePresence>
-
-      {question.style === "mcq" ? (
-        <div className="mt-4 grid gap-2.5">
-          {question.choices.map((choice, i) => {
-            const isCorrect = result && judge(choice, question.answer).verdict === "correct";
-            const isPicked = result && choice === given;
-            const state = !result
-              ? "idle"
-              : isCorrect
-                ? "correct"
-                : isPicked
-                  ? "wrong"
-                  : "dim";
-
-            return (
-              <motion.button
-                key={`${question.id}-${i}`}
-                type="button"
-                disabled={!!result}
-                onClick={() => commit(choice)}
-                initial={{ opacity: 0, y: 14 }}
-                animate={{
-                  opacity: state === "dim" ? 0.35 : 1,
-                  y: 0,
-                  scale: state === "correct" ? 1.02 : 1,
-                  x: state === "wrong" && !still ? [0, -8, 8, -5, 5, 0] : 0,
-                }}
-                transition={{ delay: result ? 0 : i * 0.05, type: "spring", stiffness: 340, damping: 26 }}
-                whileHover={result ? undefined : { y: -2, scale: 1.01 }}
-                whileTap={result ? undefined : { scale: 0.985 }}
-                className={`flex items-center gap-3 rounded-2xl border-2 border-b-4 px-4 py-4 text-left text-lg font-extrabold transition-[transform,border-width,background-color] duration-75 ${
-                  result ? "" : "active:translate-y-[3px] active:border-b-2"
-                } ${
-                  state === "correct"
-                    ? "border-pino bg-pino-soft text-pino-deep"
-                    : state === "wrong"
-                      ? "border-vermilion bg-vermilion-soft text-vermilion-deep"
-                      : "border-line bg-surface text-ink hover:border-cobalt"
-                }`}
-              >
-                <span className="grid size-7 shrink-0 place-items-center rounded-lg bg-raised font-display text-sm font-semibold text-muted">
-                  {i + 1}
+      {/*
+        De vraagkaart krijgt een vaste hoogte en de kaarten liggen over elkaar,
+        zodat de vertrekkende en de binnenkomende kaart elkaar niet verdringen.
+        Zonder dit sprongen de antwoorden omhoog tijdens de wissel.
+      */}
+      <div className="relative mt-4 h-[13rem] sm:h-[13.5rem]">
+        <AnimatePresence initial={false}>
+          <motion.div
+            key={question.id}
+            initial={{ opacity: 0, x: 44, rotate: 1.5 }}
+            animate={{ opacity: 1, x: 0, rotate: 0 }}
+            exit={{ opacity: 0, x: -44, rotate: -1.5 }}
+            transition={{ type: "spring", stiffness: 300, damping: 30 }}
+            className="absolute inset-0"
+          >
+            <Card className="flex h-full flex-col overflow-hidden">
+              <div className="flex shrink-0 items-center justify-between gap-2 border-b-2 border-line px-5 py-2.5 text-xs font-extrabold tracking-wide text-muted uppercase">
+                <span className="truncate">
+                  {question.direction === "it2nl" ? "Italiaans naar Nederlands" : "Nederlands naar Italiaans"}
                 </span>
-                <span className="flex-1">{choice}</span>
-                {state === "correct" && <span aria-hidden>✓</span>}
-                {state === "wrong" && <span aria-hidden>✗</span>}
-              </motion.button>
-            );
-          })}
-        </div>
-      ) : (
-        <div className="mt-4">
+                <span className="truncate pl-2 text-right normal-case">
+                  {lessonSubtitle(question.word.l)}
+                </span>
+              </div>
+
+              <div className="flex flex-1 flex-col items-center justify-center gap-2.5 overflow-hidden px-5 py-4 text-center">
+                <div className="flex items-center gap-3">
+                  <motion.h2
+                    initial={{ scale: 0.94 }}
+                    animate={{ scale: 1 }}
+                    transition={spring}
+                    className="font-display line-clamp-3 text-2xl leading-tight font-semibold text-balance text-ink sm:text-3xl"
+                  >
+                    {question.prompt}
+                  </motion.h2>
+                  <SpeakerButton
+                    onClick={() => speak(question.prompt, promptLang)}
+                    label="Lees de vraag voor"
+                  />
+                </div>
+                <span className="shrink-0 rounded-full bg-raised px-3 py-1 text-xs font-extrabold text-muted">
+                  {{ noun: "zelfstandig naamwoord", verb: "werkwoord", adjective: "bijvoeglijk naamwoord", other: "overig" }[question.word.t]}
+                </span>
+              </div>
+            </Card>
+          </motion.div>
+        </AnimatePresence>
+      </div>
+
+      {/* Ook het antwoordveld houdt zijn hoogte, ongeacht het aantal opties. */}
+      <div className={options.style === "type" ? "mt-4" : "mt-4 h-[19rem]"}>
+        {question.style === "mcq" ? (
+          <div className="grid gap-2.5">
+            {question.choices.map((choice, i) => {
+              const isCorrect = result && judge(choice, question.answer).verdict === "correct";
+              const isPicked = result && choice === given;
+              const state = !result
+                ? "idle"
+                : isCorrect
+                  ? "correct"
+                  : isPicked
+                    ? "wrong"
+                    : "dim";
+
+              return (
+                <motion.button
+                  key={`${question.id}-${i}`}
+                  type="button"
+                  disabled={!!result}
+                  onClick={() => commit(choice)}
+                  initial={{ opacity: 0, x: 24 }}
+                  animate={{
+                    opacity: state === "dim" ? 0.4 : 1,
+                    x: 0,
+                    scale: state === "correct" ? 1.015 : 1,
+                  }}
+                  transition={{ delay: result ? 0 : 0.06 + i * 0.05, type: "spring", stiffness: 340, damping: 26 }}
+                  whileHover={result ? undefined : { x: 3 }}
+                  className={`flex h-[4.25rem] items-center gap-3 rounded-2xl border-2 border-b-4 px-4 text-left text-base font-extrabold transition-[border-width,background-color,border-color] duration-75 sm:text-lg ${
+                    result ? "" : "active:translate-y-[3px] active:border-b-2"
+                  } ${
+                    state === "correct"
+                      ? "border-pino bg-pino-soft text-pino-deep"
+                      : state === "wrong"
+                        ? "border-vermilion bg-vermilion-soft text-vermilion-deep"
+                        : "border-line bg-surface text-ink hover:border-cobalt"
+                  }`}
+                >
+                  <span className="grid size-7 shrink-0 place-items-center rounded-lg bg-raised font-display text-sm font-semibold text-muted">
+                    {i + 1}
+                  </span>
+                  <span className="line-clamp-2 flex-1 leading-tight">{choice}</span>
+                  <span className="w-5 shrink-0 text-right">
+                    {state === "correct" && "✓"}
+                    {state === "wrong" && "✗"}
+                  </span>
+                </motion.button>
+              );
+            })}
+          </div>
+        ) : (
           <form
             onSubmit={(e) => {
               e.preventDefault();
@@ -366,6 +374,7 @@ export function QuizScreen({ questions, options, audio, onFinish, onQuit }: Prop
           >
             <input
               ref={inputRef}
+              id="answer-input"
               value={given}
               onChange={(e) => setGiven(e.target.value)}
               disabled={!!result}
@@ -373,8 +382,8 @@ export function QuizScreen({ questions, options, audio, onFinish, onQuit }: Prop
               autoCorrect="off"
               autoCapitalize="off"
               spellCheck={false}
-              placeholder={question.direction === "it2nl" ? "in het Nederlands…" : "in het Italiaans…"}
-              className={`w-full rounded-2xl border-2 bg-surface px-5 py-4 text-lg font-extrabold text-ink outline-none transition-colors placeholder:font-bold placeholder:text-muted ${
+              placeholder={question.direction === "it2nl" ? "in het Nederlands..." : "in het Italiaans..."}
+              className={`h-[4.25rem] w-full rounded-2xl border-2 bg-surface px-5 text-lg font-extrabold text-ink outline-none transition-colors placeholder:font-bold placeholder:text-muted ${
                 result
                   ? result.verdict === "correct"
                     ? "border-pino"
@@ -384,67 +393,81 @@ export function QuizScreen({ questions, options, audio, onFinish, onQuit }: Prop
                   : "border-line focus:border-cobalt"
               }`}
             />
-            <Button
-              type="submit"
-              disabled={!result && !given.trim()}
-              className="shrink-0 !px-5"
-            >
+            <Button type="submit" disabled={!result && !given.trim()} className="h-[4.25rem] shrink-0 !px-5">
               {result ? "Verder" : "Check"}
             </Button>
           </form>
-        </div>
-      )}
+        )}
+      </div>
 
+      {/*
+        De feedback schuift als balk over de pagina in plaats van eronder te
+        groeien, zodat er niets verspringt op het moment dat je antwoordt.
+      */}
       <AnimatePresence>
         {result && style && (
           <motion.div
-            initial={{ opacity: 0, y: 14, scale: 0.97 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: -10 }}
-            transition={spring}
-            className={`mt-4 rounded-2xl border-2 px-5 py-4 ${style.box}`}
+            initial={{ y: "110%" }}
+            animate={{ y: 0 }}
+            exit={{ y: "110%" }}
+            transition={{ type: "spring", stiffness: 320, damping: 34 }}
+            className={`fixed inset-x-0 bottom-0 z-30 border-t-2 ${style.box}`}
+            style={{ paddingBottom: "env(safe-area-inset-bottom, 0px)" }}
           >
-            <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-              <span className={`font-display text-xl font-semibold ${style.text}`}>
-                {style.emoji} {style.label}
-              </span>
-              {gainedXp !== null && (
-                <motion.span
-                  initial={{ opacity: 0, y: 8, scale: 0.8 }}
-                  animate={{ opacity: 1, y: 0, scale: 1 }}
-                  transition={{ ...spring, delay: 0.1 }}
-                  className="rounded-full bg-lilac-soft px-2.5 py-0.5 text-sm font-extrabold text-lilac"
-                >
-                  +{gainedXp} XP
-                </motion.span>
-              )}
-              {result.verdict !== "correct" && (
-                <span className="ml-auto flex items-center gap-2 text-right">
-                  <span className="text-base font-extrabold text-ink">
-                    {question.answer}
+            <div className="mx-auto flex max-w-2xl items-center gap-3 px-4 py-4 sm:px-6">
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-2">
+                  <span className={`font-display text-lg font-semibold whitespace-nowrap ${style.text}`}>
+                    {style.emoji} {style.label}
                   </span>
-                  <SpeakerButton
-                    onClick={() => speak(question.answer, answerLang)}
-                    className="!size-8"
-                    label="Lees het antwoord voor"
-                  />
-                </span>
+                  {/* Vaste sleuf, anders verspringt de tekst als de XP binnenkomt. */}
+                  <span className="grid w-16 shrink-0 place-items-start">
+                    <AnimatePresence>
+                      {gainedXp !== null && (
+                        <motion.span
+                          initial={{ opacity: 0, scale: 0.6 }}
+                          animate={{ opacity: 1, scale: 1 }}
+                          exit={{ opacity: 0 }}
+                          transition={spring}
+                          className="rounded-full bg-lilac-soft px-2 py-0.5 text-xs font-extrabold text-lilac tabular-nums"
+                        >
+                          +{gainedXp} XP
+                        </motion.span>
+                      )}
+                    </AnimatePresence>
+                  </span>
+                </div>
+
+                {result.verdict !== "correct" ? (
+                  <div className="mt-0.5 flex items-center gap-2">
+                    <span className="truncate text-base font-extrabold text-ink">
+                      {question.answer}
+                    </span>
+                    <SpeakerButton
+                      onClick={() => speak(question.answer, answerLang)}
+                      className="!size-8"
+                      label="Lees het antwoord voor"
+                    />
+                  </div>
+                ) : (
+                  result.note && (
+                    <p className="mt-0.5 truncate text-sm font-bold text-muted">{result.note}</p>
+                  )
+                )}
+                {result.verdict !== "correct" && result.note && (
+                  <p className="truncate text-sm font-bold text-muted">{result.note}</p>
+                )}
+              </div>
+
+              {result.verdict !== "correct" && (
+                <Button onClick={handleNext} className="shrink-0">
+                  Volgende
+                </Button>
               )}
             </div>
-
-            {result.note && (
-              <p className="mt-1 text-sm font-bold text-muted">{result.note}</p>
-            )}
-
-            {result.verdict !== "correct" && (
-              <Button onClick={handleNext} className="mt-3 w-full">
-                Volgende vraag
-              </Button>
-            )}
           </motion.div>
         )}
       </AnimatePresence>
-      </div>
     </motion.div>
   );
 }
