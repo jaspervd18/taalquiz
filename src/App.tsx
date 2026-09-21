@@ -20,6 +20,7 @@ const DEFAULTS: Options = {
   style: "mcq",
   mode: "practice",
   count: 20,
+  mixReview: true,
   audio: true,
 };
 

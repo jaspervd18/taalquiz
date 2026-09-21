@@ -4,6 +4,7 @@ import type { Options } from "../lib/types";
 import {
   BONUS_LESSONS,
   COURSE_LESSONS,
+  SENTENCE_LESSONS,
   WORDS,
   WORDS_BY_LESSON,
   lessonSubtitle,
@@ -28,6 +29,7 @@ const DIRECTIONS: { value: Options["direction"]; label: string; sub: string }[] 
 const STYLES: { value: Options["style"]; label: string; sub: string }[] = [
   { value: "mcq", label: "Kiezen", sub: "4 opties" },
   { value: "type", label: "Typen", sub: "zelf schrijven" },
+  { value: "order", label: "Volgorde", sub: "zinnen bouwen" },
   { value: "mixed", label: "Door elkaar", sub: "afwisselend" },
 ];
 
@@ -35,20 +37,23 @@ const MODES: { value: Options["mode"]; label: string; sub: string; emoji: string
   { value: "test", label: "Test", sub: "score op het einde", emoji: "🎯" },
   { value: "practice", label: "Oefenen", sub: "fouten komen terug", emoji: "🔁" },
   { value: "review", label: "Slim herhalen", sub: "zwakke woorden eerst", emoji: "🧠" },
+  { value: "complete", label: "Les afmaken", sub: "door tot alles juist is", emoji: "🏁" },
 ];
 
 const COUNTS = [10, 20, 40, 0];
 
-/** Aandeel woorden in een les dat al minstens twee keer juist ging. */
-function lessonMastery(lesson: number, progress: Progress): number {
+/** Hoe ver een les staat: het aandeel dat al juist ging, en of ze helemaal rond is. */
+function lessonProgress(lesson: number, progress: Progress) {
   const words = WORDS_BY_LESSON.get(lesson) ?? [];
-  if (words.length === 0) return 0;
+  if (words.length === 0) return { mastery: 0, done: false };
   let known = 0;
+  let seen = 0;
   for (const w of words) {
     const s = progress.words[wordKey(w)];
     if (s && s.box >= 2) known++;
+    if (s && s.box >= 1) seen++;
   }
-  return known / words.length;
+  return { mastery: known / words.length, done: seen === words.length };
 }
 
 function MasteryBar({ pct, light }: { pct: number; light?: boolean }) {
@@ -70,11 +75,14 @@ export function SetupScreen({ options, setOptions, progress, onStart }: Props) {
     [options.lessons],
   );
 
-  const mastery = useMemo(() => {
-    const map = new Map<number, number>();
-    for (const l of [...COURSE_LESSONS, ...BONUS_LESSONS]) map.set(l, lessonMastery(l, progress));
+  const status = useMemo(() => {
+    const map = new Map<number, { mastery: number; done: boolean }>();
+    for (const l of [...COURSE_LESSONS, ...BONUS_LESSONS, ...SENTENCE_LESSONS]) {
+      map.set(l, lessonProgress(l, progress));
+    }
     return map;
   }, [progress]);
+  const stateOf = (l: number) => status.get(l) ?? { mastery: 0, done: false };
 
   const toggle = (lesson: number) => {
     const next = new Set(selected);
@@ -110,7 +118,8 @@ export function SetupScreen({ options, setOptions, progress, onStart }: Props) {
           </motion.span>
         </motion.h1>
         <p className="mt-2 text-sm font-bold text-muted">
-          {WORDS_BY_LESSON.size} lessen, {WORDS.length} woorden
+          {WORDS.filter((w) => w.t !== "sentence").length} woorden en{" "}
+          {WORDS.filter((w) => w.t === "sentence").length} zinnen
         </p>
       </div>
 
@@ -126,6 +135,9 @@ export function SetupScreen({ options, setOptions, progress, onStart }: Props) {
           </Chip>
           <Chip onClick={() => setOptions({ lessons: BONUS_LESSONS })} className="!text-xs">
             Alleen bonus
+          </Chip>
+          <Chip onClick={() => setOptions({ lessons: SENTENCE_LESSONS })} className="!text-xs">
+            Alleen zinnen
           </Chip>
           <Chip onClick={() => setOptions({ lessons: [] })} className="!text-xs">
             Wissen
@@ -143,7 +155,7 @@ export function SetupScreen({ options, setOptions, progress, onStart }: Props) {
                 whileHover={{ y: -2 }}
                 transition={spring}
                 aria-pressed={on}
-                title={`${lessonSubtitle(l)}, ${WORDS_BY_LESSON.get(l)?.length ?? 0} woorden, ${Math.round((mastery.get(l) ?? 0) * 100)}% gekend`}
+                title={`${lessonSubtitle(l)}, ${WORDS_BY_LESSON.get(l)?.length ?? 0} woorden, ${Math.round(stateOf(l).mastery * 100)}% gekend${stateOf(l).done ? ", helemaal afgewerkt" : ""}`}
                 className={`relative size-11 overflow-hidden rounded-2xl border-b-4 font-display text-base font-semibold transition-[transform,border-width] duration-75 active:translate-y-[3px] active:border-b-0 ${
                   on
                     ? "bg-cobalt text-on-accent border-cobalt-deep"
@@ -151,7 +163,15 @@ export function SetupScreen({ options, setOptions, progress, onStart }: Props) {
                 }`}
               >
                 <span className="relative z-10">{l}</span>
-                <MasteryBar pct={mastery.get(l) ?? 0} light={on} />
+                {stateOf(l).done && (
+                  <span
+                    aria-hidden
+                    className={`absolute top-0.5 right-1 text-[0.6rem] ${on ? "text-on-accent" : "text-pino"}`}
+                  >
+                    ✓
+                  </span>
+                )}
+                <MasteryBar pct={stateOf(l).mastery} light={on} />
               </motion.button>
             );
           })}
@@ -169,15 +189,46 @@ export function SetupScreen({ options, setOptions, progress, onStart }: Props) {
               whileHover={{ y: -2 }}
               transition={spring}
               aria-pressed={selected.has(l)}
-              title={`${WORDS_BY_LESSON.get(l)?.length ?? 0} woorden, ${Math.round((mastery.get(l) ?? 0) * 100)}% gekend`}
+              title={`${WORDS_BY_LESSON.get(l)?.length ?? 0} woorden, ${Math.round(stateOf(l).mastery * 100)}% gekend`}
               className={`relative overflow-hidden rounded-2xl border-b-4 px-3.5 py-2.5 text-sm font-extrabold transition-[transform,border-width] duration-75 active:translate-y-[3px] active:border-b-0 ${
                 selected.has(l)
                   ? "bg-lilac text-on-accent border-lilac-deep"
                   : "bg-lilac-soft text-lilac border-edge hover:brightness-95"
               }`}
             >
-              <span className="relative z-10">{lessonSubtitle(l)}</span>
-              <MasteryBar pct={mastery.get(l) ?? 0} light={selected.has(l)} />
+              <span className="relative z-10">
+                {lessonSubtitle(l)}
+                {stateOf(l).done && " ✓"}
+              </span>
+              <MasteryBar pct={stateOf(l).mastery} light={selected.has(l)} />
+            </motion.button>
+          ))}
+        </div>
+
+        <p className="mt-5 mb-2 text-xs font-extrabold tracking-wide text-muted uppercase">
+          Zinnen
+        </p>
+        <div className="flex flex-wrap gap-2">
+          {SENTENCE_LESSONS.map((l) => (
+            <motion.button
+              key={l}
+              type="button"
+              onClick={() => toggle(l)}
+              whileHover={{ y: -2 }}
+              transition={spring}
+              aria-pressed={selected.has(l)}
+              title={`${WORDS_BY_LESSON.get(l)?.length ?? 0} zinnen, ${Math.round(stateOf(l).mastery * 100)}% gekend`}
+              className={`relative overflow-hidden rounded-2xl border-b-4 px-3.5 py-2.5 text-sm font-extrabold transition-[transform,border-width] duration-75 active:translate-y-[3px] active:border-b-0 ${
+                selected.has(l)
+                  ? "bg-pino text-on-accent border-pino-deep"
+                  : "bg-pino-soft text-pino-deep border-edge hover:brightness-95"
+              }`}
+            >
+              <span className="relative z-10">
+                {lessonSubtitle(l)}
+                {stateOf(l).done && " ✓"}
+              </span>
+              <MasteryBar pct={stateOf(l).mastery} light={selected.has(l)} />
             </motion.button>
           ))}
         </div>
@@ -239,13 +290,52 @@ export function SetupScreen({ options, setOptions, progress, onStart }: Props) {
 
         <div className="mt-6">
           <SectionTitle step={5} title="Hoeveel vragen?" />
-          <div className="flex flex-wrap gap-2">
-            {COUNTS.map((c) => (
-              <Chip key={c} active={options.count === c} onClick={() => setOptions({ count: c })}>
-                {c === 0 ? `Alles (${wordCount})` : c}
-              </Chip>
-            ))}
-          </div>
+          {options.mode === "complete" ? (
+            <p className="rounded-2xl bg-raised px-4 py-3 text-sm font-bold text-muted">
+              In deze modus doe je altijd de hele les. Fout beantwoorde woorden
+              blijven terugkomen tot je ze alle {wordCount} juist hebt.
+            </p>
+          ) : (
+            <div className="flex flex-wrap gap-2">
+              {COUNTS.map((c) => (
+                <Chip key={c} active={options.count === c} onClick={() => setOptions({ count: c })}>
+                  {c === 0 ? `Alles (${wordCount})` : c}
+                </Chip>
+              ))}
+            </div>
+          )}
+        </div>
+
+        <div className="mt-6">
+          <SectionTitle step={6} title="Herhaling" />
+          <button
+            type="button"
+            onClick={() => setOptions({ mixReview: !options.mixReview })}
+            aria-pressed={options.mixReview}
+            className="flex w-full items-center gap-3 rounded-2xl border-2 border-line bg-surface px-4 py-3 text-left"
+          >
+            <span
+              className={`relative h-7 w-12 shrink-0 rounded-full transition-colors ${
+                options.mixReview ? "bg-pino" : "bg-raised"
+              }`}
+            >
+              <motion.span
+                layout
+                transition={spring}
+                className="absolute top-1 size-5 rounded-full bg-surface shadow"
+                style={{ left: options.mixReview ? "1.5rem" : "0.25rem" }}
+              />
+            </span>
+            <span className="min-w-0">
+              <span className="block text-sm font-extrabold text-ink">
+                Oude woorden tussendoor meenemen
+              </span>
+              <span className="block text-xs font-bold text-muted">
+                Voegt een vijfde extra vragen toe uit lessen die je al deed en die
+                aan herhaling toe zijn.
+              </span>
+            </span>
+          </button>
         </div>
       </Card>
 

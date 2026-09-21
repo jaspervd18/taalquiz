@@ -1,14 +1,15 @@
 export interface Word {
-  /** lesnummer */
+  /** lesnummer: 1-41 cursus, 100+ bonus, 200+ zinnen */
   l: number;
   nl: string;
   it: string;
-  t: "noun" | "verb" | "adjective" | "other";
+  t: "noun" | "verb" | "adjective" | "other" | "sentence";
 }
 
 export type Direction = "it2nl" | "nl2it";
-export type Style = "mcq" | "type";
-export type GameMode = "test" | "practice" | "review";
+/** "order" is de volgordeoefening en bestaat alleen voor zinnen. */
+export type Style = "mcq" | "type" | "order";
+export type GameMode = "test" | "practice" | "review" | "complete";
 
 export interface Options {
   lessons: number[];
@@ -17,6 +18,8 @@ export interface Options {
   mode: GameMode;
   /** 0 = alle woorden */
   count: number;
+  /** oude woorden uit andere lessen tussendoor mee laten komen */
+  mixReview: boolean;
   audio: boolean;
 }
 
@@ -28,6 +31,12 @@ export interface Question {
   prompt: string;
   answer: string;
   choices: string[];
+  /** Voor de volgordeoefening: de losse woorden, door elkaar. */
+  tokens: string[];
+  /** Voor de volgordeoefening: de juiste volgorde. */
+  solution: string[];
+  /** Een woord uit een eerdere les dat tussendoor terugkomt. */
+  isReview: boolean;
 }
 
 export type Verdict = "correct" | "almost" | "wrong";

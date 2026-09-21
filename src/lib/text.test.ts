@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildAnswerSet, judge, levenshtein, stripGrammarLabels } from "./text";
+import { buildAnswerSet, judge, levenshtein, sameTokens, stripGrammarLabels, tokenize } from "./text";
 import { WORDS } from "./words";
 
 describe("stripGrammarLabels", () => {
@@ -85,7 +85,62 @@ describe("de woordenlijst zelf", () => {
       expect(w.nl.trim()).not.toBe("");
       expect(w.it.trim()).not.toBe("");
       expect(w.l).toBeGreaterThan(0);
-      expect(["noun", "verb", "adjective", "other"]).toContain(w.t);
+      expect(["noun", "verb", "adjective", "other", "sentence"]).toContain(w.t);
     }
+  });
+});
+
+describe("tokenize", () => {
+  it("haalt leestekens weg en zet het eerste woord klein", () => {
+    expect(tokenize("Ciao, come ti chiami?")).toEqual(["ciao", "come", "ti", "chiami"]);
+    expect(tokenize("Vorrei un biglietto per Roma.")).toEqual([
+      "vorrei", "un", "biglietto", "per", "Roma",
+    ]);
+  });
+
+  it("laat apostrofs met rust, die horen bij het woord", () => {
+    expect(tokenize("Parlo un po' d'italiano.")).toEqual(["parlo", "un", "po'", "d'italiano"]);
+  });
+});
+
+describe("sameTokens", () => {
+  it("negeert hoofdletters en accenten", () => {
+    expect(sameTokens(["Ciao", "come"], ["ciao", "come"])).toBe(true);
+    expect(sameTokens(["perche"], ["perché"])).toBe(true);
+  });
+
+  it("let wel op de volgorde en het aantal", () => {
+    expect(sameTokens(["come", "ciao"], ["ciao", "come"])).toBe(false);
+    expect(sameTokens(["ciao"], ["ciao", "come"])).toBe(false);
+  });
+});
+
+describe("de zinnen", () => {
+  const sentences = WORDS.filter((w) => w.t === "sentence");
+
+  it("levert er genoeg om mee te oefenen", () => {
+    expect(sentences.length).toBeGreaterThan(100);
+  });
+
+  it("valt in bruikbare blokjes uiteen", () => {
+    for (const s of sentences) {
+      for (const text of [s.it, s.nl]) {
+        const tokens = tokenize(text);
+        expect(tokens.length, `te weinig blokjes voor ${text}`).toBeGreaterThan(1);
+        expect(tokens.join(" ").length, `leeg blokje in ${text}`).toBeGreaterThan(0);
+        expect(sameTokens(tokens, tokenize(text))).toBe(true);
+      }
+    }
+  });
+
+  it("rekent de eigen zin juist bij het typen", () => {
+    for (const s of sentences) {
+      expect(judge(s.it, s.it).verdict, `${s.it} faalt op zichzelf`).toBe("correct");
+      expect(judge(s.nl, s.nl).verdict, `${s.nl} faalt op zichzelf`).toBe("correct");
+    }
+  });
+
+  it("accepteert een getypte zin zonder eindleesteken", () => {
+    expect(judge("Che ore sono", "Che ore sono?").verdict).toBe("correct");
   });
 });

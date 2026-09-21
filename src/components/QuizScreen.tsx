@@ -2,13 +2,14 @@ import { AnimatePresence, motion } from "framer-motion";
 import confetti from "canvas-confetti";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { Attempt, Options, Question, Verdict } from "../lib/types";
-import { judge } from "../lib/text";
+import { judge, sameTokens } from "../lib/text";
 import { requeue, xpFor } from "../lib/quiz";
 import { WORDS, lessonSubtitle, wordKey } from "../lib/words";
 import { recordAnswer, update } from "../lib/storage";
 import { speak } from "../lib/speech";
 import { sfx } from "../lib/sfx";
 import { Button, Card, SpeakerButton, spring } from "./ui";
+import { OrderExercise } from "./OrderExercise";
 import { useReducedMotion } from "../hooks";
 
 interface Props {
@@ -51,6 +52,8 @@ export function QuizScreen({ questions, options, audio, onFinish, onQuit }: Prop
   const [result, setResult] = useState<{ verdict: Verdict; note?: string } | null>(null);
   const [streak, setStreak] = useState(0);
   const [gainedXp, setGainedXp] = useState<number | null>(null);
+  /** Aangetikte blokjes van de volgordeoefening, in de volgorde van aantikken. */
+  const [placed, setPlaced] = useState<number[]>([]);
 
   const inputRef = useRef<HTMLInputElement>(null);
   /** Hoe vaak een woord deze ronde al fout ging, voor de herkansingslimiet. */
@@ -63,6 +66,20 @@ export function QuizScreen({ questions, options, audio, onFinish, onQuit }: Prop
   const total = queue.length;
   const answeredCount = attempts.length;
   const correctCount = attempts.filter((a) => a.verdict === "correct").length;
+
+  /** Voor "les afmaken": hoeveel verschillende woorden zaten al juist? */
+  const solved = useMemo(() => {
+    const set = new Set<string>();
+    for (const a of attempts) {
+      if (a.verdict === "correct") set.add(wordKey(a.question.word));
+    }
+    return set;
+  }, [attempts]);
+  const solvedCount = solved.size;
+  const uniqueCount = useMemo(
+    () => new Set(questions.map((q) => wordKey(q.word))).size,
+    [questions],
+  );
 
   const pool = useMemo(() => {
     const lessons = new Set(options.lessons);
@@ -80,6 +97,7 @@ export function QuizScreen({ questions, options, audio, onFinish, onQuit }: Prop
     setGiven("");
     setResult(null);
     setGainedXp(null);
+    setPlaced([]);
     if (question.style === "type") {
       // Even wachten tot de kaart er staat, anders springt de pagina op mobiel.
       const t = window.setTimeout(() => inputRef.current?.focus(), 260);
@@ -105,7 +123,12 @@ export function QuizScreen({ questions, options, audio, onFinish, onQuit }: Prop
     (raw: string) => {
       if (!question || result) return;
 
-      const judgement = judge(raw, question.answer);
+      const judgement =
+        question.style === "order"
+          ? sameTokens(raw.split(" ").filter(Boolean), question.solution)
+            ? { verdict: "correct" as const }
+            : { verdict: "wrong" as const }
+          : judge(raw, question.answer);
       const nextStreak = judgement.verdict === "wrong" ? 0 : streak + 1;
       const xp = xpFor(question.style, judgement.verdict, nextStreak);
 
@@ -153,7 +176,7 @@ export function QuizScreen({ questions, options, audio, onFinish, onQuit }: Prop
         const key = wordKey(question.word);
         const missCount = (misses.current.get(key) ?? 0) + 1;
         misses.current.set(key, missCount);
-        if (missCount <= MAX_RETRIES) {
+        if (options.mode === "complete" || missCount <= MAX_RETRIES) {
           nextQueue = [...queue, requeue(question, pool)];
           setQueue(nextQueue);
         }
@@ -199,14 +222,31 @@ export function QuizScreen({ questions, options, audio, onFinish, onQuit }: Prop
           commit(question.choices[n - 1]);
         }
       }
+      if (question.style === "order") {
+        if (e.key === "Backspace") {
+          e.preventDefault();
+          setPlaced((p) => p.slice(0, -1));
+        }
+        if (e.key === "Enter" && placed.length > 0) {
+          e.preventDefault();
+          commit(placed.map((slot) => question.tokens[slot]).join(" "));
+        }
+      }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [question, result, commit, handleNext, onQuit]);
+  }, [question, result, commit, handleNext, onQuit, placed]);
 
   if (!question) return null;
 
-  const pct = total === 0 ? 0 : Math.round((answeredCount / total) * 100);
+  const pct =
+    options.mode === "complete"
+      ? uniqueCount === 0
+        ? 0
+        : Math.round((solvedCount / uniqueCount) * 100)
+      : total === 0
+        ? 0
+        : Math.round((answeredCount / total) * 100);
   const style = result ? VERDICT_STYLE[result.verdict] : null;
 
   return (
@@ -227,7 +267,9 @@ export function QuizScreen({ questions, options, audio, onFinish, onQuit }: Prop
             ← Stop
           </button>
           <span className="text-muted tabular-nums">
-            {Math.min(answeredCount + 1, total)} / {total}
+            {options.mode === "complete"
+              ? `${solvedCount} / ${uniqueCount} juist`
+              : `${Math.min(answeredCount + 1, total)} / ${total}`}
           </span>
 
           {/* Vaste breedte, anders schuiven de badges bij elk goed antwoord. */}
@@ -283,8 +325,13 @@ export function QuizScreen({ questions, options, audio, onFinish, onQuit }: Prop
                 <span className="truncate">
                   {question.direction === "it2nl" ? "Italiaans naar Nederlands" : "Nederlands naar Italiaans"}
                 </span>
-                <span className="truncate pl-2 text-right normal-case">
-                  {lessonSubtitle(question.word.l)}
+                <span className="flex shrink-0 items-center gap-1.5 pl-2 text-right normal-case">
+                  {question.isReview && (
+                    <span className="rounded-full bg-lilac-soft px-2 py-0.5 text-lilac">
+                      herhaling
+                    </span>
+                  )}
+                  <span className="max-w-[9rem] truncate">{lessonSubtitle(question.word.l)}</span>
                 </span>
               </div>
 
@@ -304,7 +351,7 @@ export function QuizScreen({ questions, options, audio, onFinish, onQuit }: Prop
                   />
                 </div>
                 <span className="shrink-0 rounded-full bg-raised px-3 py-1 text-xs font-extrabold text-muted">
-                  {{ noun: "zelfstandig naamwoord", verb: "werkwoord", adjective: "bijvoeglijk naamwoord", other: "overig" }[question.word.t]}
+                  {{ noun: "zelfstandig naamwoord", verb: "werkwoord", adjective: "bijvoeglijk naamwoord", other: "overig", sentence: "zin" }[question.word.t]}
                 </span>
               </div>
             </Card>
@@ -362,6 +409,30 @@ export function QuizScreen({ questions, options, audio, onFinish, onQuit }: Prop
                 </motion.button>
               );
             })}
+          </div>
+        ) : question.style === "order" ? (
+          <div className="flex flex-col gap-3">
+            <OrderExercise
+              bank={question.tokens
+                .map((token, slot) => ({ token, slot }))
+                .filter((t) => !placed.includes(t.slot))}
+              placed={placed.map((slot) => ({ token: question.tokens[slot], slot }))}
+              locked={!!result}
+              onPlace={(slot) => setPlaced((p) => [...p, slot])}
+              onRemove={(slot) => setPlaced((p) => p.filter((s) => s !== slot))}
+            />
+            <Button
+              onClick={() => {
+                if (result) handleNext();
+                else if (placed.length > 0) {
+                  commit(placed.map((slot) => question.tokens[slot]).join(" "));
+                }
+              }}
+              disabled={!result && placed.length === 0}
+              className="w-full"
+            >
+              {result ? "Verder" : "Check"}
+            </Button>
           </div>
         ) : (
           <form

@@ -221,3 +221,25 @@ export function judge(input: string, raw: string): Judgement {
 
   return { verdict: "wrong" };
 }
+
+/**
+ * Splitst een zin in losse woorden voor de volgordeoefening. Leestekens gaan
+ * eruit, want die horen bij de zin en niet bij een blokje. Het eerste woord
+ * gaat naar kleine letters, anders verraadt de hoofdletter waar de zin begint.
+ * Eigennamen midden in de zin houden hun hoofdletter, die verraadt niets.
+ */
+export function tokenize(sentence: string): string[] {
+  const words = sentence
+    .replace(/[.,!?;:"«»]/g, " ")
+    .split(/\s+/)
+    .filter(Boolean);
+  if (words.length === 0) return [];
+  return [words[0].toLowerCase(), ...words.slice(1)];
+}
+
+/** Vergelijkt twee reeksen blokjes, ongevoelig voor hoofdletters en accenten. */
+export function sameTokens(a: readonly string[], b: readonly string[]): boolean {
+  if (a.length !== b.length) return false;
+  const norm = (t: string) => foldAccents(t.toLowerCase()).replace(/[^a-z0-9\']/g, "");
+  return a.every((t, i) => norm(t) === norm(b[i]));
+}
